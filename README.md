@@ -30,8 +30,8 @@ A lightweight, secure, and modern web-based file server built with Python and Fl
 
 1.  Clone the repository:
     ```bash
-    git clone https://github.com/yourusername/simple-file-server.git
-    cd simple-file-server
+    git clone https://github.com/tianhe117/SimpleFileServer.git
+    cd SimpleFileServer
     ```
 
 2.  Install dependencies:
@@ -92,8 +92,8 @@ MIT License
 
 1.  克隆仓库：
     ```bash
-    git clone https://github.com/yourusername/simple-file-server.git
-    cd simple-file-server
+    git clone https://github.com/tianhe117/SimpleFileServer.git
+    cd SimpleFileServer
     ```
 
 2.  安装依赖：
