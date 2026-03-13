@@ -342,39 +342,20 @@ def rename():
     return redirect(url_for('index', req_path=path))
 
 if __name__ == '__main__':
-    initial_port = config.get('port', 5000)
-    port = initial_port
-
-    # 循环检查端口是否被占用
-    while True:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            if s.connect_ex(('127.0.0.1', port)) == 0:
-                port += 1
-            else:
-                break
-
-    if port != initial_port:
-        print(f"\033[93mPort {initial_port} is busy. Switching to {port}.\033[0m")
-        
-        # Update config.json
-        config['port'] = port
-        with open(CONFIG_FILE, 'w') as f:
-            json.dump(config, f, indent=4)
-            
-        # Update README.md
-        readme_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'README.md')
-        if os.path.exists(readme_path):
-            with open(readme_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            
-            # Update URL and text description in README
-            content = re.sub(r'http://localhost:\d+', f'http://localhost:{port}', content)
-            content = re.sub(r'\(default: `\d+`\)', f'(default: `{port}`)', content)
-            content = re.sub(r'（默认：`\d+`）', f'（默认：`{port}`）', content)
-            
-            with open(readme_path, 'w', encoding='utf-8') as f:
-                f.write(content)
-            print(f"\033[92mUpdated config.json and README.md to reflect port {port}\033[0m")
-
-    print(f"\033[91mServer is running on port {port}: http://127.0.0.1:{port}\033[0m")
+    # Get port from config, but don't auto-increment it.
+    # The auto-increment logic is flawed in debug mode because the reloader 
+    # starts a second process, which finds the port busy and switches to the next one,
+    # causing a loop or constant port switching.
+    # It's better to just fail if port is busy, or let user configure it.
+    # Or, if we really want auto-switching, we should do it only if NOT in debug mode reloader.
+    
+    port = config.get('port', 5000)
+    
+    # Check if we are in the main process (not the reloader child) to avoid double checking
+    # But simpler is to just run. If port is busy, Flask will throw error.
+    # The user's issue "switching to 5001" is because my previous code added this logic.
+    # I should remove the auto-switching logic to fix the "bug" of changing ports unexpectedly
+    # and updating config.json which causes reloads.
+    
+    print(f"Server starting on port {port}...")
     app.run(host='0.0.0.0', port=port, debug=True)
