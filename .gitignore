@@ -1,0 +1,33 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+dist/
+downloads/
+eggs/
+.eggs/
+
+# Environments
+.env
+.venv
+env/
+venv/
+
+# IDE directories (PyCharm)
+.idea/
+
+# Project-specific ignores
+# 忽略配置文件，避免密码哈希等敏感信息泄露
+config.json
+
+# 忽略上传的文件根目录，仓库中不需要包含用户上传的文件
+files_root/
+
+# Installer logs
+pip-log.txt

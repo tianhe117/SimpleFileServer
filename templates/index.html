@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Index of /{{ current_path }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: "Courier New", Courier, monospace; margin: 20px; }
+        h1 { font-size: 1.5em; margin-bottom: 20px; word-break: break-all; }
+
+        table { border-collapse: collapse; width: 100%; max-width: 100%; }
+        th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #eee; }
+        th { border-bottom: 2px solid #ccc; font-weight: bold; }
+
+        a { text-decoration: none; color: #0000EE; }
+        a:hover { text-decoration: underline; }
+
+        .name-col { width: 50%; }
+        .date-col { text-align: right; width: 25%; white-space: nowrap; }
+        .size-col { text-align: right; width: 10%; white-space: nowrap; }
+        .actions-col { text-align: right; width: 15%; white-space: nowrap; }
+
+        .login-bar { margin-bottom: 20px; text-align: right; }
+        .controls { margin-bottom: 20px; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px; display: flex; gap: 10px; }
+
+        .btn { cursor: pointer; padding: 4px 8px; background: #eee; border: 1px solid #ccc; font-size: 0.9em; border-radius: 3px; }
+        .btn:hover { background: #e0e0e0; }
+
+        .alert { padding: 10px; background-color: #f44336; color: white; margin-bottom: 15px; border-radius: 4px; }
+        .alert.success { background-color: #4CAF50; }
+        .error-msg { color: #f44336; font-size: 0.9em; margin-top: 5px; margin-bottom: 10px; font-weight: bold; }
+
+        /* Modal Styles */
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); }
+        .modal-content { background-color: #fefefe; margin: 10% auto; padding: 20px; border: 1px solid #888; width: 90%; max-width: 400px; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close:hover { color: black; }
+
+        input[type="text"], input[type="file"], input[type="password"] { width: 100%; padding: 8px; margin: 10px 0; box-sizing: border-box; }
+
+        /* Progress Bar Styles */
+        #progressContainer { display: none; margin-top: 15px; }
+        #progressBar { width: 100%; background-color: #ddd; border-radius: 4px; overflow: hidden; }
+        #progressFill { height: 20px; width: 0%; background-color: #4CAF50; text-align: center; line-height: 20px; color: white; transition: width 0.2s; }
+        #progressStats { margin-top: 5px; font-size: 0.9em; color: #555; display: flex; justify-content: space-between; }
+        #uploadResult { margin-top: 10px; font-size: 0.9em; display: none; }
+        .upload-skipped { color: orange; font-weight: bold; }
+
+        /* Responsive adjustments */
+        @media screen and (max-width: 600px) {
+            body { margin: 10px; }
+            h1 { font-size: 1.2em; }
+            th, td { padding: 4px; font-size: 0.9em; }
+            .date-col { display: none; }
+            .actions-col .btn { padding: 2px 4px; font-size: 0.8em; }
+        }
+    </style>
+</head>
+<body>
+
+{% set messages = get_flashed_messages() %}
+
+<div class="login-bar">
+    {% if logged_in %}
+        <span>Logged in</span> | <a href="{{ url_for('logout') }}">Logout</a>
+    {% else %}
+        <button class="btn" onclick="openModal('loginModal')">Login</button>
+    {% endif %}
+</div>
+
+<h1>Index of /{{ current_path }}</h1>
+
+<!-- Global alerts (excluding Invalid password which is shown in modal) -->
+{% if messages %}
+    {% for message in messages %}
+        {% if message != 'Invalid password' %}
+            <div class="alert">{{ message }}</div>
+        {% endif %}
+    {% endfor %}
+{% endif %}
+
+{% if logged_in %}
+<div class="controls">
+    <button class="btn" onclick="openModal('uploadModal')">Upload File</button>
+    <button class="btn" onclick="openModal('uploadFolderModal')">Upload Folder</button>
+    <button class="btn" onclick="openModal('mkdirModal')">New Folder</button>
+</div>
+{% endif %}
+
+<table>
+    <thead>
+        <tr>
+            <th class="name-col">Name</th>
+            <th class="date-col">Last Modified</th>
+            <th class="size-col">Size</th>
+            {% if logged_in %}<th class="actions-col">Actions</th>{% endif %}
+        </tr>
+    </thead>
+    <tbody>
+        {% if parent_path is not none %}
+        <tr>
+            <td><a href="{{ url_for('index', req_path=parent_path) }}">../</a></td>
+            <td class="date-col">-</td>
+            <td class="size-col">-</td>
+            {% if logged_in %}<td></td>{% endif %}
+        </tr>
+        {% endif %}
+
+        {% for file in files %}
+        <tr>
+            <td>
+                {% if file.is_dir %}
+                    <a href="{{ url_for('index', req_path=(current_path + '/' + file.name if current_path else file.name)) }}">{{ file.name }}/</a>
+                {% else %}
+                    <a href="{{ url_for('index', req_path=(current_path + '/' + file.name if current_path else file.name)) }}">{{ file.name }}</a>
+                {% endif %}
+            </td>
+            <td class="date-col" data-timestamp="{{ file.mtime_ts }}">{{ file.mtime }}</td>
+            <td class="size-col">{{ file.formatted_size }}</td>
+            {% if logged_in %}
+            <td class="actions-col">
+                <button class="btn" onclick="rename('{{ file.name }}')">Rename</button>
+                <button class="btn" onclick="deleteItem('{{ file.name }}')">Delete</button>
+            </td>
+            {% endif %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+<hr>
+<div><em>Simple File Server</em></div>
+
+<!-- Login Modal -->
+<div id="loginModal" class="modal" data-has-error="{{ 'true' if 'Invalid password' in messages else 'false' }}">
+  <div class="modal-content">
+    <span class="close" onclick="closeModal('loginModal')">&times;</span>
+    <h3>Login</h3>
+    <form action="{{ url_for('login', next=request.url) }}" method="post">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="password" name="password" placeholder="Enter password" required>
+        {% if 'Invalid password' in messages %}
+            <div class="error-msg">Invalid password</div>
+        {% endif %}
+        <button type="submit" class="btn">Login</button>
+    </form>
+  </div>
+</div>
+
+<!-- Upload File Modal -->
+<div id="uploadModal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeModal('uploadModal')">&times;</span>
+    <h3>Upload File</h3>
+    <form id="uploadForm" onsubmit="uploadFile(event, 'uploadForm')">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="path" value="{{ current_path }}">
+        <input type="file" name="file" id="fileInput" multiple required><br>
+
+        <div class="progressContainer" style="display:none; margin-top:15px;">
+            <div class="progressBar" style="width: 100%; background-color: #ddd; border-radius: 4px; overflow: hidden;">
+                <div class="progressFill" style="height: 20px; width: 0%; background-color: #4CAF50; text-align: center; line-height: 20px; color: white; transition: width 0.2s;">0%</div>
+            </div>
+            <div class="progressStats" style="margin-top: 5px; font-size: 0.9em; color: #555; display: flex; justify-content: space-between;">
+                <span class="speed">0 KB/s</span>
+                <span class="timeElapsed">00:00</span>
+                <span class="timeRemaining">--:--</span>
+            </div>
+            <div class="uploadResult" style="display:none; margin-top:10px;"></div>
+        </div>
+
+        <button type="submit" class="btn uploadBtn" style="margin-top: 10px;">Upload</button>
+    </form>
+  </div>
+</div>
+
+<!-- Upload Folder Modal -->
+<div id="uploadFolderModal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeModal('uploadFolderModal')">&times;</span>
+    <h3>Upload Folder</h3>
+    <form id="uploadFolderForm" onsubmit="uploadFile(event, 'uploadFolderForm')">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="path" value="{{ current_path }}">
+        <input type="file" name="file" id="folderInput" webkitdirectory directory multiple required><br>
+
+        <div class="progressContainer" style="display:none; margin-top:15px;">
+            <div class="progressBar" style="width: 100%; background-color: #ddd; border-radius: 4px; overflow: hidden;">
+                <div class="progressFill" style="height: 20px; width: 0%; background-color: #4CAF50; text-align: center; line-height: 20px; color: white; transition: width 0.2s;">0%</div>
+            </div>
+            <div class="progressStats" style="margin-top: 5px; font-size: 0.9em; color: #555; display: flex; justify-content: space-between;">
+                <span class="speed">0 KB/s</span>
+                <span class="timeElapsed">00:00</span>
+                <span class="timeRemaining">--:--</span>
+            </div>
+            <div class="uploadResult" style="display:none; margin-top:10px;"></div>
+        </div>
+
+        <button type="submit" class="btn uploadBtn" style="margin-top: 10px;">Upload</button>
+    </form>
+  </div>
+</div>
+
+<!-- Mkdir Modal -->
+<div id="mkdirModal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeModal('mkdirModal')">&times;</span>
+    <h3>New Folder</h3>
+    <form action="{{ url_for('mkdir') }}" method="post">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="path" value="{{ current_path }}">
+        <input type="text" name="dirname" placeholder="Folder Name" required><br>
+        <button type="submit" class="btn">Create</button>
+    </form>
+  </div>
+</div>
+
+<!-- Rename Form (Hidden) -->
+<form id="renameForm" action="{{ url_for('rename') }}" method="post" style="display:none;">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="path" value="{{ current_path }}">
+    <input type="hidden" name="old_name" id="renameOldName">
+    <input type="hidden" name="new_name" id="renameNewName">
+</form>
+
+<!-- Delete Form (Hidden) -->
+<form id="deleteForm" action="{{ url_for('delete') }}" method="post" style="display:none;">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="path" value="{{ current_path }}">
+    <input type="hidden" name="name" id="deleteName">
+</form>
+
+<script>
+function openModal(id) {
+    // Reset progress bars when opening modal
+    var modal = document.getElementById(id);
+    var pContainer = modal.querySelector('.progressContainer');
+    if(pContainer) {
+        pContainer.style.display = 'none';
+        modal.querySelector('.progressFill').style.width = '0%';
+        modal.querySelector('.progressFill').innerText = '0%';
+        modal.querySelector('.uploadResult').style.display = 'none';
+        modal.querySelector('.uploadBtn').disabled = false;
+        // Also reset file input
+        var fileInput = modal.querySelector('input[type="file"]');
+        if(fileInput) fileInput.value = '';
+    }
+
+    modal.style.display = "block";
+}
+function closeModal(id) {
+    document.getElementById(id).style.display = "none";
+}
+window.onclick = function(event) {
+    if (event.target.classList.contains('modal')) {
+        event.target.style.display = "none";
+    }
+}
+function rename(oldName) {
+    var newName = prompt("Rename " + oldName + " to:", oldName);
+    if (newName && newName !== oldName) {
+        document.getElementById('renameOldName').value = oldName;
+        document.getElementById('renameNewName').value = newName;
+        document.getElementById('renameForm').submit();
+    }
+}
+function deleteItem(name) {
+    if (confirm("Are you sure you want to delete " + name + "?")) {
+        document.getElementById('deleteName').value = name;
+        document.getElementById('deleteForm').submit();
+    }
+}
+
+function formatBytes(bytes, decimals = 2) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
+function formatTime(seconds) {
+    if (!isFinite(seconds) || isNaN(seconds)) return "--:--";
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+
+    if (h > 0) {
+        return h + ":" + (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+    } else {
+        return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+    }
+}
+
+function uploadFile(event, formId) {
+    event.preventDefault();
+
+    var form = document.getElementById(formId);
+    var fileInput = form.querySelector('input[type="file"]');
+
+    if (fileInput.files.length === 0) return;
+
+    var formData = new FormData(form);
+    var xhr = new XMLHttpRequest();
+    var startTime = new Date().getTime();
+
+    var pContainer = form.querySelector('.progressContainer');
+    var pFill = form.querySelector('.progressFill');
+    var pSpeed = form.querySelector('.speed');
+    var pElapsed = form.querySelector('.timeElapsed');
+    var pRemaining = form.querySelector('.timeRemaining');
+    var pResult = form.querySelector('.uploadResult');
+    var btn = form.querySelector('.uploadBtn');
+
+    pContainer.style.display = 'block';
+    pResult.style.display = 'none';
+    btn.disabled = true;
+
+    xhr.upload.addEventListener("progress", function(evt) {
+        if (evt.lengthComputable) {
+            var percentComplete = (evt.loaded / evt.total) * 100;
+            pFill.style.width = percentComplete + '%';
+            pFill.innerText = Math.round(percentComplete) + '%';
+
+            var currentTime = new Date().getTime();
+            var elapsedTime = (currentTime - startTime) / 1000;
+            var uploadSpeed = evt.loaded / elapsedTime; // bytes per second
+
+            var remainingBytes = evt.total - evt.loaded;
+            var remainingTime = remainingBytes / uploadSpeed;
+
+            pSpeed.innerText = formatBytes(uploadSpeed) + '/s';
+            pElapsed.innerText = formatTime(elapsedTime);
+            pRemaining.innerText = formatTime(remainingTime);
+        }
+    }, false);
+
+    xhr.addEventListener("load", function(evt) {
+        if (xhr.status === 200) {
+             var resp = JSON.parse(xhr.responseText);
+             if (resp.skipped_files && resp.skipped_files.length > 0) {
+                 var msg = "Upload complete with warnings.<br>";
+                 msg += "Skipped " + resp.skipped_files.length + " files (invalid name):<br>";
+                 msg += "<div style='max-height:100px; overflow-y:auto; font-size:0.8em; color:orange;'>" + resp.skipped_files.join(", ") + "</div>";
+                 msg += "<br><a href='javascript:location.reload()'>Refresh Page</a>";
+
+                 pResult.innerHTML = msg;
+                 pResult.style.display = 'block';
+                 pFill.style.backgroundColor = 'orange';
+             } else {
+                 window.location.reload();
+             }
+        } else {
+             pResult.innerHTML = "<span style='color:red'>Upload failed: " + xhr.statusText + "</span>";
+             pResult.style.display = 'block';
+             btn.disabled = false;
+        }
+    }, false);
+
+    xhr.addEventListener("error", function(evt) {
+        pResult.innerHTML = "<span style='color:red'>Network Error</span>";
+        pResult.style.display = 'block';
+        btn.disabled = false;
+    }, false);
+
+    xhr.open("POST", "{{ url_for('upload') }}");
+    // Add CSRF token header for AJAX
+    var csrfToken = form.querySelector('input[name="_csrf_token"]').value;
+    xhr.setRequestHeader("X-CSRF-Token", csrfToken);
+    xhr.send(formData);
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    var dateCells = document.querySelectorAll(".date-col[data-timestamp]");
+    dateCells.forEach(function(cell) {
+        var ts = parseFloat(cell.getAttribute("data-timestamp"));
+        if (!isNaN(ts)) {
+            var date = new Date(ts * 1000);
+            var year = date.getFullYear();
+            var month = ("0" + (date.getMonth() + 1)).slice(-2);
+            var day = ("0" + date.getDate()).slice(-2);
+            var hours = ("0" + date.getHours()).slice(-2);
+            var minutes = ("0" + date.getMinutes()).slice(-2);
+            var seconds = ("0" + date.getSeconds()).slice(-2);
+            cell.innerText = year + "-" + month + "-" + day + " " + hours + ":" + minutes + ":" + seconds;
+        }
+    });
+
+    if (document.getElementById('loginModal').dataset.hasError === 'true') {
+         openModal('loginModal');
+    }
+});
+</script>
+
+</body>
+</html>
