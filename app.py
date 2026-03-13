@@ -5,6 +5,7 @@ import datetime
 import hashlib
 import logging
 import re
+import socket
 from logging.handlers import RotatingFileHandler
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, flash, abort, jsonify
@@ -341,4 +342,39 @@ def rename():
     return redirect(url_for('index', req_path=path))
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=config.get('port', 5000), debug=True)
+    initial_port = config.get('port', 5000)
+    port = initial_port
+
+    # 循环检查端口是否被占用
+    while True:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(('127.0.0.1', port)) == 0:
+                port += 1
+            else:
+                break
+
+    if port != initial_port:
+        print(f"\033[93mPort {initial_port} is busy. Switching to {port}.\033[0m")
+        
+        # Update config.json
+        config['port'] = port
+        with open(CONFIG_FILE, 'w') as f:
+            json.dump(config, f, indent=4)
+            
+        # Update README.md
+        readme_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'README.md')
+        if os.path.exists(readme_path):
+            with open(readme_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Update URL and text description in README
+            content = re.sub(r'http://localhost:\d+', f'http://localhost:{port}', content)
+            content = re.sub(r'\(default: `\d+`\)', f'(default: `{port}`)', content)
+            content = re.sub(r'（默认：`\d+`）', f'（默认：`{port}`）', content)
+            
+            with open(readme_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            print(f"\033[92mUpdated config.json and README.md to reflect port {port}\033[0m")
+
+    print(f"\033[91mServer is running on port {port}: http://127.0.0.1:{port}\033[0m")
+    app.run(host='0.0.0.0', port=port, debug=True)
